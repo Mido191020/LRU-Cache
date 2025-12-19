@@ -56,3 +56,5 @@ The cache is built using two core data structures:
 
 This repository includes a **visual design document** created using **Obsidian Canvas**:
 
+---
+we need to update our code and add templte as makes the data types genaric 
