@@ -2,45 +2,51 @@
 #include <unordered_map>
 
 using namespace std;
-template <typename T>
+template <typename K, typename V>
 struct node{
-T key;
-T value;
+K key;
+V value;
 node*next;
 node*prev;
-node(T k,T v):
-
+node(K k = K(), V v = V()):
         key(k),
         value(v),
-        next(NULL),
-        prev(NULL)
+        next(nullptr),
+        prev(nullptr)
     {}
 };
-template <typename T>
+template <typename K, typename V>
 class linked_list{
 private:
-node<T>*head;
-node<T>*tail;
+node<K, V>*head;
+node<K, V>*tail;
 public:
     linked_list(){
-        head= nullptr;
-        tail= nullptr;
+        head = new node<K, V>();
+        tail = new node<K, V>();
+        head->next = tail;
+        tail->prev = head;
     }
-    void insert(T key,T value){
-        node<T>* newNode=new node(key,value);
-        if (head== nullptr){
-            head=newNode;
-            tail=newNode;
-            return;
+    ~linked_list(){
+        node<K, V>* curr = head;
+        while (curr != nullptr){
+            node<K, V>* next_node = curr->next;
+            delete curr;
+            curr = next_node;
         }
-        newNode->next=head;
-        head->prev=newNode;
-        head=newNode;
-
     }
-    node<T>* find(T k){
-        node<T>*temp=head;
-        while (temp!= nullptr){
+    void insert(K key, V value){
+        node<K, V>* newNode=new node<K, V>(key,value);
+        node<K, V>* first=head->next;
+
+        newNode->next=first;
+        newNode->prev=head;
+        head->next=newNode;
+        first->prev=newNode;
+    }
+    node<K, V>* find(K k){
+        node<K, V>*temp=head->next;
+        while (temp!= tail){
             if (temp->key==k){
                 return temp;
             }
@@ -48,80 +54,43 @@ public:
         }
         return nullptr;
     }
+    void removeNode(node<K, V>* target){
+        node<K, V>* prevNode = target->prev;
+        node<K, V>* nextNode = target->next;
 
-   int remove(T key){
-        //to remove node from a list
-        //find the node
-        //change the conections of it
-        //if tail we need to make new tail
-        //if it head we need to remove it and make the node empty
-        node<T>*temp= find(key);
+        prevNode->next = nextNode;
+        nextNode->prev = prevNode;
+    }
+   int remove(K key){
+        node<K, V>*temp= find(key);
         if (temp== nullptr)return -1;
-        node<T>*prev=temp->prev;
-        node<T>*next_node=temp->next;
-
-        if (temp==head){
-            if (head==tail){
-                head= nullptr;
-                tail= nullptr;
-            } else{
-                head=head->next;
-                head->prev= nullptr;
-            }
-
-
-            delete(temp);
-            return 1;
-        }
-        if (temp==tail){
-            prev->next=temp->next;
-            tail=prev;
-            delete(temp);
-            return 1;
-        }
-        prev->next=temp->next;
-        next_node->prev=temp->prev;
+        removeNode(temp);
         delete(temp);
-       return 1;
+        return 1;
     }
-    void Detach(node<T>*target){
-        if (target == nullptr || target == head) return;
-        node<T>*prev=target->prev;
-        node<T>*next=target->next;
+    void Detach(node<K, V>*target){
+        removeNode(target);
 
-        if (target == tail) {
-            tail = prev;
-            tail->next = nullptr;
-        } else {
-            prev->next = next;
-            next->prev = prev;
-        }
-        target->next=head;
-        target->prev = nullptr;
-        head->prev=target;
-        head=target;
+        node<K, V>* first = head->next;
+        target->next = first;
+        target->prev = head;
+        head->next = target;
+        first->prev = target;
     }
-    void moveToFront(T key){
-
-        node<T>*temp= find(key);
-        if (temp== nullptr||temp== head)return;
+    void moveToFront(K key){
+        node<K, V>*temp= find(key);
+        if (temp== nullptr||temp== head->next)return;
         Detach(temp);
     }
     void removeLast(){
-        if (tail== nullptr)return;
-      node<T>*toDelete=tail;
-      if (head==tail){
-          head= nullptr;
-          tail= nullptr;
-      } else{
-          tail=tail->prev;
-          tail->next= nullptr;
-      }
-      delete(toDelete);
+        if (tail->prev== head)return;
+        node<K, V>*toDelete=tail->prev;
+        removeNode(toDelete);
+        delete(toDelete);
     }
     void print(){
-        node<T>*temp=head;
-        while (temp!= nullptr){
+        node<K, V>*temp=head->next;
+        while (temp!= tail){
             cout<<temp->key;
             cout<< "->" << temp->value;
             cout<<"\n";
@@ -132,7 +101,7 @@ public:
 };
 
 int main() {
-    linked_list<int>Node;
+    linked_list<int, int>Node;
     Node.insert(1,10);
     Node.insert(2,20);
     Node.insert(3,30);

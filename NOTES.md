@@ -5,33 +5,26 @@
 
 ---
 
-## 🛠️ Completed: Doubly Linked List (`linked_list<T>`)
+## 🛠️ Completed Architecture: Production-Grade Doubly Linked List
 Branch: `write-my-own-version` in [`main.cpp`](file:///D:/clion/LRU%20Cache/main.cpp)
 
 ### 1. Core Structures
-- [`struct node<T>`](file:///D:/clion/LRU%20Cache/main.cpp#L6-L18):
-  - Stores `key`, `value`, `next`, and `prev`.
-  - Constructor initializes `key(k)`, `value(v)`, and zeroes pointers.
-- [`class linked_list<T>`](file:///D:/clion/LRU%20Cache/main.cpp#L20-L127):
-  - Explicit default constructor initializes `head = nullptr;` and `tail = nullptr;` (preventing garbage pointer access violations).
+- [`struct node<K, V>`](file:///D:/clion/LRU%20Cache/main.cpp#L5-L17):
+  - Decoupled key (`K`) and value (`V`) types supporting heterogeneous storage.
+  - Safe default constructor `node(K k = K(), V v = V())` for both real entries and sentinel nodes.
+  - Initialized with modern `nullptr` pointers (`next`, `prev`).
+- [`class linked_list<K, V>`](file:///D:/clion/LRU%20Cache/main.cpp#L18-L101):
+  - **Sentinel (Dummy Nodes) Pattern**: Initializes permanently anchored `head` and `tail` sentinels (`head->next = tail; tail->prev = head;`), eliminating all `nullptr` edge-cases and conditional branching.
+  - **Memory Leak Protection**: Destructor `~linked_list()` walks the chain and deallocates every node and sentinel from the heap upon exit.
 
-### 2. Verified Operations
-- **`insert(key, value)`**: $\mathcal{O}(1)$ prepend to head. Handles empty-list vs multi-node without circular loops.
-- **`find(key)`**: Returns pointer to the matching node.
-- **`remove(key)`**: Robust deletion handling all topologies:
-  - Single-node list (`head == tail`): cleanly sets `head = nullptr; tail = nullptr;`.
-  - Head removal (`temp == head`): advances `head = head->next; head->prev = nullptr;`.
-  - Tail removal (`temp == tail`): pulls back `tail = tail->prev; tail->next = nullptr;`.
-  - Middle node removal: splices neighbors (`prev->next = next; next->prev = prev;`).
-  - Frees heap memory via `delete temp;`.
-- **`moveToFront(key)`**:
-  - Safe guards: `if (temp == head || temp == nullptr) return;`.
-  - Re-promotes target node to head without memory leaks or use-after-free.
-- **`removeLast()`**:
-  - Pure $\mathcal{O}(1)$ tail eviction using `tail->prev`.
-  - Zero loops, safely evicts LRU item for cache eviction.
-- **`print()`**:
-  - Formatted visualization of the chain (`key->value`).
+### 2. Verified Branch-Free Operations
+- **`insert(key, value)`**: Inserts immediately after `head` sentinel in $\mathcal{O}(1)$ with zero `if` conditions.
+- **`removeNode(node<K, V>* target)`**: Direct 2-line pointer splice (`prev->next = next; next->prev = prev;`) universally applicable to any node without special casing head, tail, or single elements.
+- **`remove(key)`**: Locates key via `find(key)`, unhooks with `removeNode()`, and frees memory.
+- **`Detach(node<K, V>* target)`**: Slices node from its position via `removeNode()` and promotes it directly after `head` in pure $\mathcal{O}(1)$ with zero branches.
+- **`moveToFront(key)`**: Promotes accessed node to MRU position.
+- **`removeLast()`**: Instantaneous $\mathcal{O}(1)$ LRU tail eviction targeting `tail->prev`.
+- **`print()`**: Clean forward traversal from `head->next` to `tail` rendering `key->value`.
 
 ---
 
