@@ -46,7 +46,7 @@
 		{
 			"id":"12d6e57d76aa2229",
 			"type":"text",
-			"text":"### Summary of Core Entities\n\n- **LRUCache**: Main class that exposes `get` and `put` APIs. Manages internal data structures and enforces eviction, insertion, and update rules.\n- **Node**: Represents an individual cache entry. Stores key-value pair and maintains pointers to adjacent nodes for O(1) reordering.\n- **DoublyLinkedList**: Maintains recency order of usage. Supports constant-time insertion, removal, and movement of nodes.\n- **HashMap**: Maps keys to their corresponding nodes in the doubly linked list for fast lookup and efficient updates.",
+			"text":"### Summary of Core Entities\n\n- **LRUCache**: Main class that exposes `get` and `put` APIs. Manages internal value structures and enforces eviction, insertion, and update rules.\n- **Node**: Represents an individual cache entry. Stores key-value pair and maintains pointers to adjacent nodes for O(1) reordering.\n- **DoublyLinkedList**: Maintains recency order of usage. Supports constant-time insertion, removal, and movement of nodes.\n- **HashMap**: Maps keys to their corresponding nodes in the doubly linked list for fast lookup and efficient updates.",
 			"styleAttributes":{},
 			"x":-1200,
 			"y":1360,
@@ -169,7 +169,7 @@
 		{
 			"id":"849a0f66d26030cc",
 			"type":"text",
-			"text":" **LRU Cache** is centered around choosing the **right data structures and internal abstractions**",
+			"text":" **LRU Cache** is centered around choosing the **right value structures and internal abstractions**",
 			"styleAttributes":{},
 			"x":-2880,
 			"y":322,

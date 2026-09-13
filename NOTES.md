@@ -1,32 +1,49 @@
 # Session Notes: Custom LRU Cache Implementation
 
 ## Status & Summary
-> **Log:** We wrote the first version of the project for today, but we need to sleep now. There was some small confusion on a few edge cases, but everything is fine—we understand the core project mechanics and can complete the remaining implementation in a short amount of time.
+> **Log:** The Doubly Linked List (`linked_list`) class is now fully implemented, debugged, and verified! All edge cases (head removal, tail eviction, single-node scenarios, use-after-free, and pointer initialization) have been tested and run cleanly. The foundation is complete.
 
 ---
 
-## 🛠️ What We Did Today (Branch: `write-my-own-version`)
-1. **Initialized Custom Implementation**:
-   - Began rewriting the LRU Cache architecture from scratch in [`main.cpp`](file:///D:/clion/LRU%20Cache/main.cpp) using C++ templates.
-   - Built the generic [`struct node<T>`](file:///D:/clion/LRU%20Cache/main.cpp#L5-L16) to hold cache elements with prev/next pointers.
-   - Created the generic [`class linked_list<T>`](file:///D:/clion/LRU%20Cache/main.cpp#L17-L64) to manage the recency-ordered doubly linked list.
-2. **Operations Drafted**:
-   - `insert(T data)`: Implemented head-insertion logic.
-   - `find(T k)`: Added a node traversal lookup.
-   - Outlined stubs for `remove()`, `moveToFront()`, and `removeLast()`.
+## 🛠️ Completed: Doubly Linked List (`linked_list<T>`)
+Branch: `write-my-own-version` in [`main.cpp`](file:///D:/clion/LRU%20Cache/main.cpp)
+
+### 1. Core Structures
+- [`struct node<T>`](file:///D:/clion/LRU%20Cache/main.cpp#L6-L18):
+  - Stores `key`, `value`, `next`, and `prev`.
+  - Constructor initializes `key(k)`, `value(v)`, and zeroes pointers.
+- [`class linked_list<T>`](file:///D:/clion/LRU%20Cache/main.cpp#L20-L127):
+  - Explicit default constructor initializes `head = nullptr;` and `tail = nullptr;` (preventing garbage pointer access violations).
+
+### 2. Verified Operations
+- **`insert(key, value)`**: $\mathcal{O}(1)$ prepend to head. Handles empty-list vs multi-node without circular loops.
+- **`find(key)`**: Returns pointer to the matching node.
+- **`remove(key)`**: Robust deletion handling all topologies:
+  - Single-node list (`head == tail`): cleanly sets `head = nullptr; tail = nullptr;`.
+  - Head removal (`temp == head`): advances `head = head->next; head->prev = nullptr;`.
+  - Tail removal (`temp == tail`): pulls back `tail = tail->prev; tail->next = nullptr;`.
+  - Middle node removal: splices neighbors (`prev->next = next; next->prev = prev;`).
+  - Frees heap memory via `delete temp;`.
+- **`moveToFront(key)`**:
+  - Safe guards: `if (temp == head || temp == nullptr) return;`.
+  - Re-promotes target node to head without memory leaks or use-after-free.
+- **`removeLast()`**:
+  - Pure $\mathcal{O}(1)$ tail eviction using `tail->prev`.
+  - Zero loops, safely evicts LRU item for cache eviction.
+- **`print()`**:
+  - Formatted visualization of the chain (`key->value`).
 
 ---
 
-## 🔍 Points of Clarification for the Next Session
-When resuming fresh tomorrow, address these specific design refinements:
-1. **Decouple Key & Value**:
-   - A cache entry needs both `K key` and `V value` (e.g. `template <typename K, typename V>`).
-   - When evicting the least recently used node from the tail, we need its `key` to delete the entry from `unordered_map` in $\mathcal{O}(1)$.
-2. **Sentinel Nodes Pattern**:
-   - Initialize list with dummy `head` and `tail` sentinels (`head->next = tail`, `tail->prev = head`).
-   - This eliminates all `nullptr` checks and makes `moveToFront()` and `removeLast()` clean 3-line pointer updates.
-3. **Strict $\mathcal{O}(1)$ Operations**:
-   - Remove the `while (temp != nullptr)` tail-search loop inside `insert()`; maintain `tail` directly or use sentinels.
-   - Delegate key lookup strictly to `std::unordered_map` instead of linear list traversal.
-4. **LRUCache Wrapper**:
-   - Wire `unordered_map<K, node<K, V>*>` with the list to expose the public `get(key)` and `put(key, value)` APIs.
+## 🚀 Next Milestone: `LRU_Cache` Wrapper
+With the doubly linked list verified, the final phase is wiring the cache coordinator:
+1. Embed `unordered_map<int, node<int>*> cacheMap;` and `linked_list<int> cacheList;`.
+2. Implement `get(key)`:
+   - Check map in $\mathcal{O}(1)$.
+   - If present, `moveToFront(key)` and return value.
+   - If not found, return `-1`.
+3. Implement `put(key, value)`:
+   - If key exists: update value and `moveToFront(key)`.
+   - If key is new:
+     - If at `capacity`, evict tail via `removeLast()` and erase from map.
+     - Insert new node to head and record in map.
