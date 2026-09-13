@@ -84,14 +84,28 @@ public:
         delete(temp);
        return 1;
     }
+    void Detach(node<T>*target){
+        if (target == nullptr || target == head) return;
+        node<T>*prev=target->prev;
+        node<T>*next=target->next;
+
+        if (target == tail) {
+            tail = prev;
+            tail->next = nullptr;
+        } else {
+            prev->next = next;
+            next->prev = prev;
+        }
+        target->next=head;
+        target->prev = nullptr;
+        head->prev=target;
+        head=target;
+    }
     void moveToFront(T key){
 
         node<T>*temp= find(key);
         if (temp== nullptr||temp== head)return;
-        T k=temp->key;
-        T value=temp->value;
-        remove(key);
-        insert(k,value);
+        Detach(temp);
     }
     void removeLast(){
         if (tail== nullptr)return;
