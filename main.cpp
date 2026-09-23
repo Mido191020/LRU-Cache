@@ -16,6 +16,8 @@ node(K k = K(), V v = V()):
     {}
 };
 template <typename K, typename V>
+class LRUCache ;
+template <typename K, typename V>
 class linked_list{
 private:
 node<K, V>*head;
@@ -35,14 +37,15 @@ public:
             curr = next_node;
         }
     }
-    void insert(K key, V value){
+    node<K,V>* insert(K key, V value){
         node<K, V>* newNode=new node<K, V>(key,value);
         node<K, V>* first=head->next;
 
-        newNode->next=first;
-        newNode->prev=head;
-        head->next=newNode;
-        first->prev=newNode;
+        newNode->next = first;
+        newNode->prev = head;
+        head->next = newNode;
+        first->prev = newNode;
+        return newNode;
     }
     node<K, V>* find(K k){
         node<K, V>*temp=head->next;
@@ -61,11 +64,10 @@ public:
         prevNode->next = nextNode;
         nextNode->prev = prevNode;
     }
-   int remove(K key){
-        node<K, V>*temp= find(key);
-        if (temp== nullptr)return -1;
-        removeNode(temp);
-        delete(temp);
+   int remove(node<K, V>*target){
+        if (target == nullptr)return -1;
+        removeNode(target);
+        delete(target);
         return 1;
     }
     void Detach(node<K, V>*target){
@@ -77,16 +79,17 @@ public:
         head->next = target;
         first->prev = target;
     }
-    void moveToFront(K key){
-        node<K, V>*temp= find(key);
-        if (temp== nullptr||temp== head->next)return;
-        Detach(temp);
+    void moveToFront( node<K, V>*target){
+        if (target == nullptr || target == head->next)return;
+        Detach(target);
+    }
+    node<K,V>*getLast(){
+        if (tail->prev== head)return nullptr;
+        return tail->prev;
     }
     void removeLast(){
         if (tail->prev== head)return;
-        node<K, V>*toDelete=tail->prev;
-        removeNode(toDelete);
-        delete(toDelete);
+        remove(tail->prev);
     }
     void print(){
         node<K, V>*temp=head->next;
@@ -99,15 +102,100 @@ public:
         cout<<"\n";
     }
 };
+template <typename K, typename V>
+class LRUCache {
+private:
+    int capacity;
+    std::unordered_map<K, node<K, V>*> cacheMap;
+    linked_list<K, V> cacheList;
+public:
+    LRUCache(int c){
+        capacity=c;
+    }
+
+    node<K,V>*get(K key){
+    auto it=cacheMap.find(key);
+        if (it==cacheMap.end())
+            return nullptr;
+        cacheList.moveToFront(it->second);
+        return it->second;
+    }
+
+
+    node<K,V>*put(K key,V value){
+        if (capacity <= 0)
+            return nullptr;
+        auto it = cacheMap.find(key);
+        if (it!=cacheMap.end()){
+            node<K,V>* existNode = it->second;
+            existNode->value = value;
+            cacheList.moveToFront(existNode);
+            return existNode;
+        }
+        node<K,V>*newNode=cacheList.insert(key,value);
+        cacheMap[key]=newNode;
+        if (cacheMap.size()>capacity){
+            node<K,V>*lastNode=cacheList.getLast();
+            K get_key=lastNode->key;
+            cacheMap.erase(get_key);
+            cacheList.removeLast();
+        }
+        return newNode;
+    }
+
+    void display(){
+        cout << "Cache State (MRU -> LRU):\n";
+        cacheList.print();
+    }
+};
 
 int main() {
-    linked_list<int, int>Node;
-    Node.insert(1,10);
-    Node.insert(2,20);
-    Node.insert(3,30);
-    Node.insert(4,40);
-    Node.print();
-    Node.moveToFront(1);
-    Node.print();
+    cout << "========================================\n";
+    cout << "       LRU CACHE TEST (Capacity = 3)    \n";
+    cout << "========================================\n\n";
+
+    LRUCache<int, int> cache(3);
+
+    cout << "[Step 1] Adding 3 entries: (1, 10), (2, 20), (3, 30)...\n";
+    cache.put(1, 10);
+    cache.put(2, 20);
+    cache.put(3, 30);
+    cache.display();
+
+    cout << "[Step 2] Accessing key 1 (Promoting it to MRU)...\n";
+    node<int, int>* res = cache.get(1);
+    if (res) {
+        cout << "Hit! Key: 1, Value: " << res->value << "\n";
+    } else {
+        cout << "Miss! Key 1 not found.\n";
+    }
+    cache.display();
+
+    cout << "[Step 3] Adding key 4 (4, 40) -> Should evict key 2 (LRU)...\n";
+    cache.put(4, 40);
+    cache.display();
+
+    cout << "[Step 4] Checking if key 2 is still in cache...\n";
+    if (cache.get(2) == nullptr) {
+        cout << "-> SUCCESS: Key 2 is evicted (cache miss) as expected!\n\n";
+    } else {
+        cout << "-> ERROR: Key 2 was NOT evicted!\n\n";
+    }
+
+    cout << "[Step 5] Updating key 3 to new value 300 (Promoting 3 to MRU)...\n";
+    cache.put(3, 300);
+    cache.display();
+
+    cout << "[Step 6] Adding key 5 (5, 50) -> Should evict key 1 (LRU)...\n";
+    cache.put(5, 50);
+    cache.display();
+
+    cout << "[Step 7] Checking if key 1 is still in cache...\n";
+    if (cache.get(1) == nullptr) {
+        cout << "-> SUCCESS: Key 1 is evicted (cache miss) as expected!\n\n";
+    } else {
+        cout << "-> ERROR: Key 1 was NOT evicted!\n\n";
+    }
+
     return 0;
 }
