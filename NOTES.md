@@ -6,23 +6,23 @@
 ---
 
 ## 🛠️ Completed Architecture: Production-Grade Doubly Linked List
-Branch: `write-my-own-version` in [`main.cpp`](file:///D:/clion/LRU%20Cache/main.cpp)
+Branch: `write-my-own-version` in [`main.cpp`](main.cpp)
 
 ### 1. Core Structures
-- [`struct node<K, V>`](file:///D:/clion/LRU%20Cache/main.cpp#L5-L17):
+- [`struct node<K, V>`](main.cpp#L5-L17):
   - Decoupled key (`K`) and value (`V`) types supporting heterogeneous storage.
   - Safe default constructor `node(K k = K(), V v = V())` for both real entries and sentinel nodes.
   - Initialized with modern `nullptr` pointers (`next`, `prev`).
-- [`class linked_list<K, V>`](file:///D:/clion/LRU%20Cache/main.cpp#L18-L101):
+- [`class linked_list<K, V>`](main.cpp#L18-L101):
   - **Sentinel (Dummy Nodes) Pattern**: Initializes permanently anchored `head` and `tail` sentinels (`head->next = tail; tail->prev = head;`), eliminating all `nullptr` edge-cases and conditional branching.
   - **Memory Leak Protection**: Destructor `~linked_list()` walks the chain and deallocates every node and sentinel from the heap upon exit.
 
 ### 2. Verified Branch-Free Operations
 - **`insert(key, value)`**: Inserts immediately after `head` sentinel in $\mathcal{O}(1)$ with zero `if` conditions.
 - **`removeNode(node<K, V>* target)`**: Direct 2-line pointer splice (`prev->next = next; next->prev = prev;`) universally applicable to any node without special casing head, tail, or single elements.
-- **`remove(key)`**: Locates key via `find(key)`, unhooks with `removeNode()`, and frees memory.
+- **`remove(node<K, V>* target)`**: Unhooks the supplied node with `removeNode()` and frees its memory.
 - **`Detach(node<K, V>* target)`**: Slices node from its position via `removeNode()` and promotes it directly after `head` in pure $\mathcal{O}(1)$ with zero branches.
-- **`moveToFront(key)`**: Promotes accessed node to MRU position.
+- **`moveToFront(node<K, V>* target)`**: Promotes the supplied node to MRU position.
 - **`removeLast()`**: Instantaneous $\mathcal{O}(1)$ LRU tail eviction targeting `tail->prev`.
 - **`print()`**: Clean forward traversal from `head->next` to `tail` rendering `key->value`.
 
@@ -259,15 +259,16 @@ This section documents every error, bug, compiler/linker issue, and runtime fail
 
 ---
 
-## 🚀 Next Milestone: `LRU_Cache` Wrapper
-With the doubly linked list verified, the final phase is wiring the cache coordinator:
-1. Embed `unordered_map<int, node<int>*> cacheMap;` and `linked_list<int> cacheList;`.
-2. Implement `get(key)`:
-   - Check map in $\mathcal{O}(1)$.
-   - If present, `moveToFront(key)` and return value.
-   - If not found, return `-1`.
-3. Implement `put(key, value)`:
-   - If key exists: update value and `moveToFront(key)`.
+## ✅ Completed: `LRUCache<K, V>` Wrapper
+The cache coordinator is fully implemented in [`main.cpp`](main.cpp#L104-L149):
+1. Embeds `unordered_map<K, node<K, V>*> cacheMap` and `linked_list<K, V> cacheList`.
+2. `get(key)`:
+   - Checks map in $\mathcal{O}(1)$.
+   - If present, `moveToFront(node*)` and returns the node pointer.
+   - If not found, returns `nullptr`.
+3. `put(key, value)`:
+   - If key exists: updates value and `moveToFront(node*)`.
    - If key is new:
-     - If at `capacity`, evict tail via `removeLast()` and erase from map.
-     - Insert new node to head and record in map.
+     - Inserts new node at head and records in map.
+     - If at `capacity`, evicts `getLast()` via `removeLast()` and erases from map.
+4. `display()`: Prints cache state (MRU → LRU) via `cacheList.print()`.
