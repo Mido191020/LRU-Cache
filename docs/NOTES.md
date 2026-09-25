@@ -6,14 +6,14 @@
 ---
 
 ## 🛠️ Completed Architecture: Production-Grade Doubly Linked List
-Branch: `write-my-own-version` in [`main.cpp`](main.cpp)
+Branch: `write-my-own-version` in [`LRUCache.hpp`](../include/LRUCache.hpp)
 
 ### 1. Core Structures
-- [`struct node<K, V>`](main.cpp#L5-L17):
+- [`struct node<K, V>`](../include/LRUCache.hpp#L5-L17):
   - Decoupled key (`K`) and value (`V`) types supporting heterogeneous storage.
   - Safe default constructor `node(K k = K(), V v = V())` for both real entries and sentinel nodes.
   - Initialized with modern `nullptr` pointers (`next`, `prev`).
-- [`class linked_list<K, V>`](main.cpp#L18-L101):
+- [`class linked_list<K, V>`](../include/LRUCache.hpp#L18-L101):
   - **Sentinel (Dummy Nodes) Pattern**: Initializes permanently anchored `head` and `tail` sentinels (`head->next = tail; tail->prev = head;`), eliminating all `nullptr` edge-cases and conditional branching.
   - **Memory Leak Protection**: Destructor `~linked_list()` walks the chain and deallocates every node and sentinel from the heap upon exit.
 
@@ -260,7 +260,7 @@ This section documents every error, bug, compiler/linker issue, and runtime fail
 ---
 
 ## ✅ Completed: `LRUCache<K, V>` Wrapper
-The cache coordinator is fully implemented in [`main.cpp`](main.cpp#L104-L149):
+The cache coordinator is fully implemented in [`main.cpp`](../include/LRUCache.hpp#L104-L149):
 1. Embeds `unordered_map<K, node<K, V>*> cacheMap` and `linked_list<K, V> cacheList`.
 2. `get(key)`:
    - Checks map in $\mathcal{O}(1)$.
