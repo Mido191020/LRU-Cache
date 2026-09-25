@@ -34,12 +34,25 @@ The cache operates by coordinating two structures:
 1. **`std::unordered_map<K, node<K, V>*>`**: Provides $\mathcal{O}(1)$ lookup from a Key directly to the node's memory address in the linked list.
 2. **`linked_list<K, V>`**: A custom doubly-linked list maintaining strict MRU (Most Recently Used) to LRU (Least Recently Used) chronological order.
 
-### The Sentinel Node Invariant
-By initializing the list with two dummy nodes (`head` and `tail`), the list is *never* empty from a pointer perspective. Every real node is guaranteed to have a `prev` and a `next`.
+### 🧠 The Mental Model: Sentinel Nodes
+Sentinel nodes act as permanent bookends for your data:
+- **HEAD:** "I stand at the beginning. Always."
+- **TAIL:** "I stand at the end. Always."
+
+They never hold user data and never get deleted. This guarantees that **every real node ALWAYS has a valid `prev` and a valid `next`.**
+
+#### With vs Without Sentinels
+
+| | Without Sentinels | With Sentinels |
+|---|---|---|
+| **Insert** | 4+ code paths (head/tail/middle/empty) | **1 universal path (4 pointer ops)** |
+| **Delete** | 4+ code paths (head/tail/middle/only) | **1 universal path (2 pointer ops)** |
+| **Null checks** | Everywhere | **None** |
+| **Empty list** | `head = null` (special case) | **`HEAD ⇄ TAIL` (same as any state)** |
 
 This turns complex conditional logic:
 ```cpp
-// Bad: Traditional list removal
+// Bad: Traditional list removal (4 checks)
 if (node->prev) node->prev->next = node->next;
 else head = node->next;
 if (node->next) node->next->prev = node->prev;
@@ -47,7 +60,7 @@ else tail = node->prev;
 ```
 Into a universally true, branch-free, $\mathcal{O}(1)$ operation:
 ```cpp
-// Good: Sentinel node removal
+// Good: Sentinel node removal (2 lines, zero checks)
 node->prev->next = node->next;
 node->next->prev = node->prev;
 ```
