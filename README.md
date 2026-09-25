@@ -34,6 +34,30 @@ The cache operates by coordinating two structures:
 1. **`std::unordered_map<K, node<K, V>*>`**: Provides $\mathcal{O}(1)$ lookup from a Key directly to the node's memory address in the linked list.
 2. **`linked_list<K, V>`**: A custom doubly-linked list maintaining strict MRU (Most Recently Used) to LRU (Least Recently Used) chronological order.
 
+### System Components
+
+The LRU Cache is built using three primary components working in concert:
+
+```text
++---------------------------------------------------------+
+|                      LRU Cache                          |
+|  +----------------------+  +----------------------+     |
+|  |   HashMap (O(1))     |  |  Doubly Linked List  |     |
+|  |                      |  |                      |     |
+|  |  Key -> Node*        |  |  [Head] <-> Node <-> |     |
+|  |                      |  |          |           |     |
+|  |  Fast Lookup         |  |        Node <-> [Tail]   |
+|  +----------------------+  +----------------------+     |
+|         ^                            ^                  |
+|         |                            |                  |
+|    Reference Nodes          Maintains LRU Order         |
++---------------------------------------------------------+
+```
+
+### Class Diagram
+
+![LRU Cache Class Diagram](diagrams/lrucache-class-diagram.png)
+
 ### 🧠 The Mental Model: Sentinel Nodes
 Sentinel nodes act as permanent bookends for your data:
 - **HEAD:** "I stand at the beginning. Always."
@@ -65,28 +89,14 @@ node->prev->next = node->next;
 node->next->prev = node->prev;
 ```
 
-### System Components
+### 🔍 Memory-Level Trace: How $\mathcal{O}(1)$ Actually Works
+In a standard array, finding an element is $\mathcal{O}(N)$. To achieve $\mathcal{O}(1)$ access and eviction, this cache bridges a hash map and a linked list using **raw heap memory addresses**.
 
-The LRU Cache is built using three primary components working in concert:
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│                      LRU Cache                          │
-│  ┌──────────────────────┐  ┌──────────────────────┐   │
-│  │   HashMap (O(1))     │  │  Doubly Linked List  │   │
-│  │                      │  │                       │   │
-│  │  Key → Node*         │  │  [Head] ⟷ Node ⟷     │   │
-│  │                      │  │         ↓            │   │
-│  │  Fast Lookup         │  │       Node ⟷ [Tail]  │   │
-│  └──────────────────────┘  └──────────────────────┘   │
-│         ↕                            ↕                  │
-│    Reference Nodes          Maintains LRU Order        │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Class Diagram
-
-![LRU Cache Class Diagram](diagrams/lrucache-class-diagram.png)
+When `get(Key)` is called:
+1. **Hash Jump:** The `unordered_map` hashes the key and instantly resolves to the exact heap address of the node (e.g., `0x7ff9a1b...`).
+2. **Direct Memory Access:** We bypass list traversal entirely. We jump straight to `0x7ff9a1b...` in RAM.
+3. **Pointer Surgery (`Detach`):** We read the node's `prev` and `next` pointers and wire its neighbors directly to each other, effectively "splicing" the node out of the chain in exactly 2 operations.
+4. **Promotion:** We wire the node directly behind the `Head` sentinel to establish it as the new MRU.
 
 ---
 
@@ -95,16 +105,57 @@ The LRU Cache is built using three primary components working in concert:
 Building a linked data structure from scratch requires confronting memory corruption, segfaults, and topological bugs. Here are the core issues resolved during development:
 
 ### 1. Pointer Garbage (`0xC0000005` Access Violation)
-**Bug:** C++ stack pointers are not zeroed out by default; they contain garbage memory addresses from previous frames.
-**Fix:** Explicitly set pointers `head = nullptr; tail = nullptr;` in the initial single-type implementation, later evolving to instantiate the dummy sentinels in the constructor.
+**The Bug:** C++ stack pointers are not zeroed out by default; they contain garbage memory addresses from previous frames.
+```cpp
+// 💥 FATAL: Uninitialized Pointers
+class linked_list {
+    node* head; // Holds garbage (e.g., 0x7ff6a2b0)
+    node* tail;
+    // insert() attempts to write to head->next and segfaults
+```
+**The Fix:** Explicitly set pointers `head = nullptr; tail = nullptr;` in the initial single-type implementation, later evolving to instantiate the dummy sentinels directly in the constructor.
 
 ### 2. The Use-After-Free (UAF) Trap
-**Bug:** A naive `moveToFront(key)` implementation would `delete` the node and then try to read `temp->key` to re-insert it. This dereferences deallocated memory.
-**Fix:** Wrote a pure pointer-surgery method `Detach(node*)` that unhooks the node and wires it behind `head` without ever triggering the heap allocator (`delete` or `new`).
+**The Bug:** A naive `moveToFront(key)` implementation deletes the node and then attempts to read `temp->key` to re-insert it. This dereferences deallocated memory.
+```cpp
+// 💥 FATAL: Use-After-Free
+void moveToFront(K key) {
+    node* temp = find(key);
+    remove(key);                    // delete temp; is called inside here!
+    insert(temp->key, temp->value); // ❌ Reading from deallocated memory!
+}
+```
+**The Fix:** Built `Detach(node*)`—a pure pointer-surgery method that unhooks the node and wires it behind `head` *without* ever triggering the heap allocator (`delete` or `new`).
+```cpp
+// ✅ SAFE: Zero-Allocation Pointer Splicing
+void Detach(node<K, V>* target) {
+    target->prev->next = target->next;
+    target->next->prev = target->prev;
+    // ... rewire behind head
+}
+```
 
 ### 3. Branch-Free $\mathcal{O}(1)$ Eviction
-**Bug:** Early iteration used `removeLast()` by traversing from head to tail to find the node, resulting in $\mathcal{O}(N)$ eviction.
-**Fix:** With the doubly-linked tail sentinel, the LRU element is always accessible precisely at `tail->prev`. Eviction is an instant $\mathcal{O}(1)$ lookup.
+**The Bug:** Early iterations used `removeLast()` by traversing from head to tail to find the node, resulting in $\mathcal{O}(N)$ eviction.
+**The Fix:** With the doubly-linked tail sentinel, the LRU element is always accessible precisely at `tail->prev`. Eviction is an instant $\mathcal{O}(1)$ lookup.
+
+---
+
+## 💾 Memory Footprint Analysis
+
+A true low-level system must account for every byte. 
+
+**Per-Node Overhead:**
+For a cache storing `int` keys and `int` values:
+- `K key` (4 bytes) + `V value` (4 bytes)
+- `node* prev` (8 bytes on 64-bit OS)
+- `node* next` (8 bytes on 64-bit OS)
+- **Total Node Size:** 24 bytes (plus potential compiler struct padding).
+
+**Map Overhead:**
+`std::unordered_map` adds hash bucket overhead (typically ~32 bytes per entry).
+
+**Total Space Complexity:** $\mathcal{O}(K)$ where $K$ is the capacity limit. The total memory footprint is deterministic and bounds safely based on the constructor's `capacity` parameter.
 
 ---
 
