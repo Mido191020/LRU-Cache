@@ -5,9 +5,9 @@
 [![C++](https://img.shields.io/badge/C++-17%2B-blue.svg?style=flat&logo=c%2B%2B)](https://isocpp.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**A high-performance, purely $\mathcal{O}(1)$ Least Recently Used (LRU) Cache built from the ground up in Modern C++ using an `unordered_map` and a heavily optimized doubly linked list.**
+**A high-performance, $\mathcal{O}(1)$ Least Recently Used (LRU) Cache built from the ground up in Modern C++ using an `unordered_map` and a custom doubly linked list.**
 
-[Architecture](#️-architecture) • [The 12-Bug Post-Mortem](#-the-12-bug-engineering-post-mortem) • [Usage](#-usage)
+[Architecture](#️-architecture) • [Engineering Post-Mortem](#-engineering-post-mortem) • [Usage](#-usage)
 
 </div>
 
@@ -15,14 +15,14 @@
 
 ## 🎯 Overview
 
-This repository isn't just an implementation of an LRU Cache; it is an **engineering case study** in building low-level data structures from first principles. 
+This repository is an **engineering case study** in building low-level data structures from first principles. 
 
-Instead of hiding behind standard library lists, this project implements a **custom, memory-safe, templated Doubly Linked List**. It utilizes the **Sentinel (Dummy) Node pattern**, achieving zero-branch constant-time pointer surgeries ($\mathcal{O}(1)$) and eradicating the typical null-pointer edge cases that plague cache designs.
+Instead of wrapping a standard library list, this project implements a **custom, memory-safe, templated Doubly Linked List**. It utilizes the **Sentinel (Dummy) Node pattern**, achieving zero-branch constant-time pointer surgeries ($\mathcal{O}(1)$) and eradicating the typical null-pointer edge cases that plague cache designs.
 
 ### Core Features
 - ✅ **Pure $\mathcal{O}(1)$ operations:** Constant-time `get()`, `put()`, and LRU eviction.
 - ✅ **Sentinel (Dummy) Node Architecture:** Permanently anchored `head` and `tail` nodes eliminate `if (nullptr)` edge-casing entirely.
-- ✅ **Zero-Allocation Node Promotion:** Uses an in-place `Detach()` method to rewire pointers without triggering the `new`/`delete` heap allocator, solving Use-After-Free bugs.
+- ✅ **Zero-Allocation Node Promotion:** Uses an in-place `Detach()` method to rewire pointers without triggering the `new`/`delete` heap allocator, resolving Use-After-Free vulnerabilities.
 - ✅ **Template-driven:** Type-safe for any `K` (Key) and `V` (Value) pairings.
 - ✅ **Rule of 5 Compliant:** Prevents shallow-copy double-free memory corruption.
 
@@ -55,13 +55,13 @@ node->next->prev = node->prev;
 ### Visual Flow
 ```mermaid
 flowchart LR
-    Map[HashMap] -.->|O(1) Lookup| N2
+    Map["HashMap"] -.->|"O(1) Lookup"| N2
     
-    subgraph Doubly Linked List (MRU to LRU)
-        H[Head Sentinel] <--> N1[Node 1]
-        N1 <--> N2[Node 2]
-        N2 <--> N3[Node 3]
-        N3 <--> T[Tail Sentinel]
+    subgraph DLL ["Doubly Linked List (MRU to LRU)"]
+        H["Head Sentinel"] <--> N1["Node 1"]
+        N1 <--> N2["Node 2"]
+        N2 <--> N3["Node 3"]
+        N3 <--> T["Tail Sentinel"]
     end
 
     style H fill:#333,color:#fff
@@ -71,54 +71,35 @@ flowchart LR
 
 ---
 
-## 📓 The 12-Bug Engineering Post-Mortem
+## 📓 Engineering Post-Mortem
 
-Building a linked data structure from scratch requires confronting memory corruption, segfaults, and topological bugs. 
+Building a linked data structure from scratch requires confronting memory corruption, segfaults, and topological bugs. Here are the core issues resolved during development:
 
-I meticulously documented the entire engineering journey—including the root causes and mechanical fixes for 12 distinct low-level bugs—in **[`docs/NOTES.md`](docs/NOTES.md)**. 
+### 1. Pointer Garbage (`0xC0000005` Access Violation)
+**Bug:** C++ stack pointers are not zeroed out by default; they contain garbage memory addresses from previous frames.
+**Fix:** Explicitly set pointers `head = nullptr; tail = nullptr;` in the initial single-type implementation, later evolving to instantiate the dummy sentinels in the constructor.
 
-If you want to understand how C++ handles stack garbage, Use-After-Free (UAF) vulnerabilities, template redefinitions, and NTFS process locking, read the post-mortem.
+### 2. The Use-After-Free (UAF) Trap
+**Bug:** A naive `moveToFront(key)` implementation would `delete` the node and then try to read `temp->key` to re-insert it. This dereferences deallocated memory.
+**Fix:** Wrote a pure pointer-surgery method `Detach(node*)` that unhooks the node and wires it behind `head` without ever triggering the heap allocator (`delete` or `new`).
+
+### 3. Branch-Free $\mathcal{O}(1)$ Eviction
+**Bug:** Early iteration used `removeLast()` by traversing from head to tail to find the node, resulting in $\mathcal{O}(N)$ eviction.
+**Fix:** With the doubly-linked tail sentinel, the LRU element is always accessible precisely at `tail->prev`. Eviction is an instant $\mathcal{O}(1)$ lookup.
 
 ---
 
 ## 💻 Usage
 
-### Quick Start
+### Run the Code
 
-The core cache is a header-only, templated class. Drop [`include/LRUCache.hpp`](include/LRUCache.hpp) into your project.
+The implementation is self-contained in `main.cpp`. It includes the library code and an interactive test suite that demonstrates $\mathcal{O}(1)$ insertion, MRU promotion, and LRU cache eviction.
 
-```cpp
-#include "LRUCache.hpp"
-#include <iostream>
+To compile and run using standard `g++`:
 
-int main() {
-    // Create an LRU cache with a strict capacity of 3
-    LRUCache<int, std::string> cache(3);
-
-    // 1. Insert values
-    cache.put(1, "A");
-    cache.put(2, "B");
-    cache.put(3, "C");
-    
-    // Cache State: [3:"C" (MRU)] -> [2:"B"] -> [1:"A" (LRU)]
-
-    // 2. O(1) Access and MRU Promotion
-    node<int, std::string>* result = cache.get(1); // "A" moves to MRU
-    
-    // Cache State: [1:"A" (MRU)] -> [3:"C"] -> [2:"B" (LRU)]
-
-    // 3. Exceed Capacity & Evict
-    cache.put(4, "D"); // Cache is full. Key 2 ("B") is evicted in O(1).
-    
-    cache.display(); 
-    // Output:
-    // Cache State (MRU -> LRU):
-    // 4->D
-    // 1->A
-    // 3->C
-    
-    return 0;
-}
+```bash
+g++ -std=c++17 main.cpp -o LRU_Cache
+./LRU_Cache
 ```
 
 ### API Reference
@@ -129,26 +110,6 @@ int main() {
 | `get(K key)` | $\mathcal{O}(1)$ | Looks up key in the hash map. If found, detaches and promotes the node to MRU. Returns `node*` or `nullptr`. |
 | `put(K key, V value)` | $\mathcal{O}(1)$ | Inserts or updates a key. If capacity is exceeded, evicts the `tail->prev` node instantly. |
 | `display()` | $\mathcal{O}(N)$ | Safely traverses the linked list from `head->next` to print the chronological state. |
-
----
-
-## 🚀 Build & Test
-
-To compile and run the interactive test suite located in [`src/main.cpp`](src/main.cpp):
-
-**Using CMake (Recommended):**
-```bash
-mkdir build && cd build
-cmake ..
-cmake --build .
-./LRU_Cache
-```
-
-**Using pure `g++`:**
-```bash
-g++ -std=c++17 src/main.cpp -I include -o LRU_Cache
-./LRU_Cache
-```
 
 ---
 

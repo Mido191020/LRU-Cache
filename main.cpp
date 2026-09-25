@@ -1,8 +1,7 @@
-#ifndef LRU_CACHE_HPP
-#define LRU_CACHE_HPP
-
 #include <iostream>
 #include <unordered_map>
+
+using namespace std;
 
 // Node Structure
 template <typename K, typename V>
@@ -119,10 +118,10 @@ public:
     void print() {
         node<K, V>* temp = head->next;
         while (temp != tail) {
-            std::cout << temp->key << "->" << temp->value << "\n";
+            cout << temp->key << "->" << temp->value << "\n";
             temp = temp->next;
         }
-        std::cout << "\n";
+        cout << "\n";
     }
 };
 
@@ -130,7 +129,7 @@ template <typename K, typename V>
 class LRUCache {
 private:
     int capacity;
-    std::unordered_map<K, node<K, V>*> cacheMap;
+    unordered_map<K, node<K, V>*> cacheMap;
     linked_list<K, V> cacheList;
 
 public:
@@ -177,9 +176,43 @@ public:
     }
 
     void display() {
-        std::cout << "Cache State (MRU -> LRU):\n";
+        cout << "Cache State (MRU -> LRU):\n";
         cacheList.print();
     }
 };
 
-#endif // LRU_CACHE_HPP
+int main() {
+    cout << "========================================\n";
+    cout << "       LRU CACHE TEST (Capacity = 3)    \n";
+    cout << "========================================\n\n";
+
+    LRUCache<int, int> cache(3);
+
+    cout << "[Step 1] Adding 3 entries: (1, 10), (2, 20), (3, 30)...\n";
+    cache.put(1, 10);
+    cache.put(2, 20);
+    cache.put(3, 30);
+    cache.display();
+
+    cout << "[Step 2] Accessing key 1 (Promoting it to MRU)...\n";
+    node<int, int>* res = cache.get(1);
+    if (res) {
+        cout << "Hit! Key: 1, Value: " << res->value << "\n";
+    } else {
+        cout << "Miss! Key 1 not found.\n";
+    }
+    cache.display();
+
+    cout << "[Step 3] Adding key 4 (4, 40) -> Should evict key 2 (LRU)...\n";
+    cache.put(4, 40);
+    cache.display();
+
+    cout << "[Step 4] Checking if key 2 is still in cache...\n";
+    if (cache.get(2) == nullptr) {
+        cout << "-> SUCCESS: Key 2 is evicted (cache miss) as expected!\n\n";
+    } else {
+        cout << "-> ERROR: Key 2 was NOT evicted!\n\n";
+    }
+
+    return 0;
+}
