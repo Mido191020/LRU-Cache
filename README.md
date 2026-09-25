@@ -65,22 +65,28 @@ node->prev->next = node->next;
 node->next->prev = node->prev;
 ```
 
-### Visual Flow
-```mermaid
-flowchart LR
-    Map["HashMap"] -.->|"O(1) Lookup"| N2
-    
-    subgraph DLL ["Doubly Linked List (MRU to LRU)"]
-        H["Head Sentinel"] <--> N1["Node 1"]
-        N1 <--> N2["Node 2"]
-        N2 <--> N3["Node 3"]
-        N3 <--> T["Tail Sentinel"]
-    end
+### System Components
 
-    style H fill:#333,color:#fff
-    style T fill:#333,color:#fff
-    style Map fill:#0052cc,color:#fff
+The LRU Cache is built using three primary components working in concert:
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                      LRU Cache                          │
+│  ┌──────────────────────┐  ┌──────────────────────┐   │
+│  │   HashMap (O(1))     │  │  Doubly Linked List  │   │
+│  │                      │  │                       │   │
+│  │  Key → Node*         │  │  [Head] ⟷ Node ⟷     │   │
+│  │                      │  │         ↓            │   │
+│  │  Fast Lookup         │  │       Node ⟷ [Tail]  │   │
+│  └──────────────────────┘  └──────────────────────┘   │
+│         ↕                            ↕                  │
+│    Reference Nodes          Maintains LRU Order        │
+└─────────────────────────────────────────────────────────┘
 ```
+
+### Class Diagram
+
+![LRU Cache Class Diagram](diagrams/lrucache-class-diagram.png)
 
 ---
 
